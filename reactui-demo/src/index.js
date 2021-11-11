@@ -6,47 +6,29 @@ import React, {
   useState,
   useRef,
   memo,
-  useCallback
+  useCallback,
+  Profiler
 } from 'react';
 import { render } from 'react-dom';
 import { AgGridReact } from 'ag-grid-react';
 import 'ag-grid-community/dist/styles/ag-grid.css';
-import 'ag-grid-community/dist/styles/ag-theme-alpine.css';
-
-// example based on https://www.ag-grid.com/react-data-grid/reactui/#example-no-wasted-render
-
-// Custom Cell Renderer - note the use of memo to avoid wasted renders
-const RenderCounterCellRenderer = memo(params => {
-  const renderCountRef = useRef(1);
-  return (
-    <span className="my-renderer">
-      <span className="render-count">({renderCountRef.current++})</span>{' '}
-      {params.value}
-    </span>
-  );
-});
-
-function SpinningRenderer(params) {
-  return (
-        <span className="my-spinner-renderer">
-          <img src="https://d1yk6z6emsz7qy.cloudfront.net/static/images/loading.gif" className="my-spinner"/>
-            {params.value}
-        </span>
-  );
-}
+ //import 'ag-grid-community/dist/styles/ag-theme-balham-dark.css';
+import rowDefs from './makeData'
 
 function GridExample() {
+  console.log('rowData is', rowDefs)
   const [reactui, setReactUi] = useState(true);
 
   const gridRef = useRef();
 
   const columnDefs = useMemo(
     () => [
-      { field: 'athlete', cellRendererFramework: RenderCounterCellRenderer },
-      { field: 'country', cellRendererFramework: RenderCounterCellRenderer },
-      { field: 'gold', cellRendererFramework: RenderCounterCellRenderer },
-      { field: 'silver', cellRendererFramework: RenderCounterCellRenderer },
-      { field: 'age', cellRendererFramework: SpinningRenderer },
+      { field: 'track-id'},
+      { field: 'status'},
+      { field: 'hits'},
+      { field: 'first-detect'},
+      { field: 'duration' },
+      { field: 'location'},
     ],
     []
   );
@@ -62,24 +44,7 @@ function GridExample() {
   );
 
   // because row data changes, it needs to be state
-  const [rowData, setRowData] = useState();
-
-  // gets called once, no dependencies, loads the grid data
-  useEffect(() => {
-    fetch('https://www.ag-grid.com/example-assets/olympic-winners.json')
-      .then(resp => resp.json())
-      .then(data => setRowData(data.slice(0, 10)));
-  }, []);
-
-  const onClickIncreaseMedals = useCallback(() => {
-    const gridApi = gridRef.current.api;
-    gridApi.forEachNode(rowNode => {
-      ['gold', 'silver'].forEach(colId => {
-        const currentVal = gridApi.getValue(colId, rowNode);
-        rowNode.setDataValue(colId, currentVal + 1);
-      });
-    });
-  });
+  const [rowData, setRowData] = useState(rowDefs);
 
   const disableReactUI = useCallback(() => {
     setReactUi(false);
@@ -89,14 +54,34 @@ function GridExample() {
     setReactUi(true);
   });
 
+  const onRenderCallback = (
+    id, // the "id" prop of the Profiler tree that has just committed
+    phase, // either "mount" (if the tree just mounted) or "update" (if it re-rendered)
+    actualDuration, // time spent rendering the committed update
+    baseDuration, // estimated time to render the entire subtree without memoization
+    startTime, // when React began rendering this update
+    commitTime, // when React committed this update
+    interactions // the Set of interactions belonging to this update
+  ) => {
+    // Aggregate or log render timings...
+    console.log(
+      'Phase is', phase,
+      'Duration is', actualDuration,
+      'Start time is', startTime, 
+      'Commit Time is', commitTime,
+      'Base time w/o Memoization is', baseDuration
+    )
+  }
+
   return (
     <div className={'parent-div'}>
-      <div className="buttons-div">
+      {/* <div className="buttons-div">
         {reactui && <button onClick={disableReactUI}>Disable React Ui</button>}
         {!reactui && <button onClick={enableReactUI}>Enable React Ui</button>}
         <button onClick={onClickIncreaseMedals}>Increase Medals</button>
-      </div>
+      </div> */}
       <div className="grid-div">
+        {/* <Profiler id="Table" onRender={onRenderCallback}> */}
         <AgGridReact
           // turn on AG Grid React UI
           reactUi={reactui}
@@ -104,11 +89,12 @@ function GridExample() {
           ref={gridRef}
           // all other properties as normal...
           className="ag-theme-alpine"
-          animateRows="true"
+          animateRows="false"
           columnDefs={columnDefs}
           defaultColDef={defaultColDef}
           rowData={rowData}
         />
+        {/* </Profiler> */}
       </div>
     </div>
   );
